@@ -62,7 +62,7 @@ class Plugin:
                     "connection": connection,
                 }
 
-            self._run_nmcli(["connection", "modify", connection, "wifi.bssid", bssid])
+            self._run_nmcli(["connection", "modify", connection, "802-11-wireless.bssid", bssid])
             message = f"Locked SSID '{ssid}' (connection: {connection}) to BSSID {bssid}."
             decky.logger.info(message)
             return {
@@ -138,7 +138,7 @@ class Plugin:
 
     def _get_current_bssid(self, connection):
         output = subprocess.check_output(
-            ["nmcli", "-g", "wifi.bssid", "connection", "show", connection],
+            ["nmcli", "-g", "802-11-wireless.bssid", "connection", "show", connection],
             text=True,
             stderr=subprocess.STDOUT,
         )
