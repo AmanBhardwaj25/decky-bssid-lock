@@ -16,7 +16,7 @@ class Plugin:
         self.loop = asyncio.get_running_loop()
         self.log_path = os.path.join(decky.DECKY_PLUGIN_LOG_DIR, "bssid-lock.log")
         os.makedirs(decky.DECKY_PLUGIN_LOG_DIR, exist_ok=True)
-        decky.logger.info("Decky BSSID Lock backend loaded")
+        decky.logger.info("Decky BSSID Lock backend loaded (uid=%s)", os.geteuid())
 
     async def _unload(self):
         decky.logger.info("Decky BSSID Lock backend unloading")
@@ -84,51 +84,55 @@ class Plugin:
             return {"status": "failure", "message": "Unexpected error occurred."}
 
     def _run_nmcli(self, args):
-        return subprocess.check_output(
-            ["nmcli", *args],
-            text=True,
-            stderr=subprocess.STDOUT,
-        )
+        cmds: list[list[str]] = []
+        if os.geteuid() != 0:
+            cmds.append(["sudo", "-n", "nmcli", *args])
+        cmds.append(["nmcli", *args])
+
+        last_err: subprocess.CalledProcessError | None = None
+        for cmd in cmds:
+            try:
+                return subprocess.check_output(
+                    cmd,
+                    text=True,
+                    stderr=subprocess.STDOUT,
+                )
+            except subprocess.CalledProcessError as err:
+                output = (err.stdout or "") + (err.stderr or "")
+                lowered = output.lower()
+                if "insufficient privileges" in lowered:
+                    raise LockError("Insufficient privileges to modify Wi-Fi settings. Enable root access for the plugin.") from err
+                if "password is required" in lowered or "authentication is required" in lowered:
+                    last_err = err
+                    continue
+                last_err = err
+        if last_err:
+            raise last_err
+        raise LockError("Failed to execute nmcli command.")
 
     def _get_wifi_device(self):
-        output = subprocess.check_output(
-            ["nmcli", "-t", "-f", "DEVICE,TYPE", "dev", "status"],
-            text=True,
-            stderr=subprocess.STDOUT,
-        )
+        output = self._run_nmcli(["-t", "-f", "DEVICE,TYPE", "dev", "status"])
         for line in output.splitlines():
             if line.endswith(":wifi"):
                 return line.split(":", 1)[0]
         return ""
 
     def _get_active_ssid(self):
-        output = subprocess.check_output(
-            ["nmcli", "-t", "-f", "ACTIVE,SSID", "dev", "wifi"],
-            text=True,
-            stderr=subprocess.STDOUT,
-        )
+        output = self._run_nmcli(["-t", "-f", "ACTIVE,SSID", "dev", "wifi"])
         for line in output.splitlines():
             if line.startswith("yes:"):
                 return line.split(":", 1)[1]
         return ""
 
     def _get_active_connection(self, device):
-        output = subprocess.check_output(
-            ["nmcli", "-t", "-f", "NAME,DEVICE", "connection", "show", "--active"],
-            text=True,
-            stderr=subprocess.STDOUT,
-        )
+        output = self._run_nmcli(["-t", "-f", "NAME,DEVICE", "connection", "show", "--active"])
         for line in output.splitlines():
             if line.endswith(f":{device}"):
                 return line.split(":", 1)[0]
         return ""
 
     def _get_bssid_for_ssid(self, ssid):
-        output = subprocess.check_output(
-            ["nmcli", "-t", "-f", "SSID,BSSID", "dev", "wifi", "list"],
-            text=True,
-            stderr=subprocess.STDOUT,
-        )
+        output = self._run_nmcli(["-t", "-f", "SSID,BSSID", "dev", "wifi", "list"])
         for line in output.splitlines():
             if not line:
                 continue
@@ -137,11 +141,7 @@ class Plugin:
         return ""
 
     def _get_current_bssid(self, connection):
-        output = subprocess.check_output(
-            ["nmcli", "-g", "802-11-wireless.bssid", "connection", "show", connection],
-            text=True,
-            stderr=subprocess.STDOUT,
-        )
+        output = self._run_nmcli(["-g", "802-11-wireless.bssid", "connection", "show", connection])
         return output.strip()
 
     def _normalize(self, value):
