@@ -1,11 +1,11 @@
 {
-  "name": "BSSID locker",
+  "name": "Decky BSSID Lock",
   "author": "Aman Bhardwaj",
-  "flags": ["debug", "_root"],
+  "flags": ["debug"],
   "api_version": 1,
   "publish": {
-    "tags": ["template", "root"],
-    "description": "BSSID Locker",
-    "image": "https://opengraph.githubassets.com/1/SteamDeckHomebrew/PluginLoader"
+    "tags": ["wifi", "network"],
+    "description": "Prototype UI for locking the current Wi-Fi connection by BSSID.",
+    "image": ""
   }
 }
