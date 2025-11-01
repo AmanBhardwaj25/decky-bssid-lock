@@ -1,7 +1,7 @@
 {
   "name": "Decky BSSID Lock",
   "author": "Aman Bhardwaj",
-  "flags": ["debug"],
+  "flags": ["debug", "_root"],
   "api_version": 1,
   "publish": {
     "tags": ["wifi", "network"],
