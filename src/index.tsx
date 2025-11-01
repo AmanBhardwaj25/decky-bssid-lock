@@ -12,11 +12,34 @@ type LockResult = {
 };
 
 const lockBssid = callable<[], LockResult>("lock_bssid");
+const clearBssid = callable<[], LockResult>("clear_bssid");
 
 function Content() {
   const [isRunning, setIsRunning] = useState(false);
 
-  const onClick = async () => {
+  const handleResult = (result: LockResult | undefined, successTitle: string, partialTitle: string) => {
+    if (result?.status === "success") {
+      toaster.toast({
+        title: successTitle,
+        body: result.message ?? "Operation completed."
+      });
+      return true;
+    }
+    if (result?.status === "partial") {
+      toaster.toast({
+        title: partialTitle,
+        body: result.message ?? "No changes were required."
+      });
+      return true;
+    }
+    toaster.toast({
+      title: "BSSID Operation Failed",
+      body: "bssid lock failed"
+    });
+    return false;
+  };
+
+  const lock = async () => {
     if (isRunning) {
       return;
     }
@@ -24,29 +47,31 @@ function Content() {
     setIsRunning(true);
     try {
       const result = await lockBssid();
-      if (result?.status === "success") {
-        toaster.toast({
-          title: "BSSID Locked",
-          body: `Locked ${result.ssid ?? "current network"} to ${result.bssid ?? "target BSSID"}.`
-        });
-        return;
-      }
-
-      if (result?.status === "partial") {
-        toaster.toast({
-          title: "Already Locked",
-          body: result.message ?? "BSSID was already locked for this connection."
-        });
-        return;
-      }
-
+      handleResult(result, "BSSID Locked", "Already Locked");
+    } catch (error) {
+      console.error("Lock BSSID failed", error);
       toaster.toast({
-        title: "BSSID Lock Failed",
+        title: "BSSID Operation Failed",
         body: "bssid lock failed"
       });
-    } catch {
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  const clear = async () => {
+    if (isRunning) {
+      return;
+    }
+
+    setIsRunning(true);
+    try {
+      const result = await clearBssid();
+      handleResult(result, "BSSID Cleared", "Already Clear");
+    } catch (error) {
+      console.error("Clear BSSID failed", error);
       toaster.toast({
-        title: "BSSID Lock Failed",
+        title: "BSSID Operation Failed",
         body: "bssid lock failed"
       });
     } finally {
@@ -57,8 +82,13 @@ function Content() {
   return (
     <PanelSection title="Decky BSSID Lock">
       <PanelSectionRow>
-        <ButtonItem layout="below" onClick={onClick} disabled={isRunning}>
+        <ButtonItem layout="below" onClick={lock} disabled={isRunning}>
           Lock BSSID for current Wi-Fi connection
+        </ButtonItem>
+      </PanelSectionRow>
+      <PanelSectionRow>
+        <ButtonItem layout="below" onClick={clear} disabled={isRunning}>
+          Clear BSSID lock for current Wi-Fi connection
         </ButtonItem>
       </PanelSectionRow>
     </PanelSection>

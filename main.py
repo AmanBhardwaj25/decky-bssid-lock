@@ -32,6 +32,11 @@ class Plugin:
         result = await loop.run_in_executor(None, self._lock_bssid_sync)
         return result
 
+    async def clear_bssid(self):
+        loop = getattr(self, "loop", None) or asyncio.get_running_loop()
+        result = await loop.run_in_executor(None, self._clear_bssid_sync)
+        return result
+
     def _lock_bssid_sync(self):
         try:
             device = self._get_wifi_device()
@@ -69,6 +74,52 @@ class Plugin:
                 "status": "success",
                 "ssid": ssid,
                 "bssid": bssid,
+                "connection": connection,
+            }
+
+        except LockError as err:
+            self._log_failure(str(err))
+            return {"status": "failure", "message": str(err)}
+        except subprocess.CalledProcessError as err:
+            output = (err.stdout or "") + (err.stderr or "")
+            self._log_failure(f"nmcli error: {output.strip() or err}")
+            return {"status": "failure", "message": "nmcli returned an error."}
+        except Exception as err:  # pylint: disable=broad-except
+            self._log_failure(f"Unexpected error: {err}")
+            return {"status": "failure", "message": "Unexpected error occurred."}
+
+    def _clear_bssid_sync(self):
+        try:
+            device = self._get_wifi_device()
+            if not device:
+                raise LockError("No Wi-Fi device found.")
+
+            ssid = self._get_active_ssid()
+            if not ssid:
+                raise LockError("No active Wi-Fi SSID found.")
+
+            connection = self._get_active_connection(device)
+            if not connection:
+                raise LockError(f"No active connection profile for device {device}.")
+
+            current_bssid = self._get_current_bssid(connection)
+            if not current_bssid:
+                message = f"No BSSID lock set for SSID '{ssid}' ({connection})."
+                decky.logger.info(message)
+                return {
+                    "status": "partial",
+                    "message": message,
+                    "ssid": ssid,
+                    "connection": connection,
+                }
+
+            self._run_nmcli(["connection", "modify", connection, "802-11-wireless.bssid", ""])
+            message = f"Cleared BSSID lock for SSID '{ssid}' (connection: {connection})."
+            decky.logger.info(message)
+            return {
+                "status": "success",
+                "message": message,
+                "ssid": ssid,
                 "connection": connection,
             }
 

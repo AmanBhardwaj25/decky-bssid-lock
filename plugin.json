@@ -5,7 +5,7 @@
   "api_version": 1,
   "publish": {
     "tags": ["wifi", "network"],
-    "description": "Prototype UI for locking the current Wi-Fi connection by BSSID.",
+    "description": "UI for locking the current Wi-Fi connection by BSSID.",
     "image": ""
   }
 }
