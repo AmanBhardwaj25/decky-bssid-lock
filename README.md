@@ -19,14 +19,11 @@ sudo npm i -g pnpm@9
 
 ### Build
 
-1. Clone repo
-2. In your local run these commands:
+1. Clone repo to /home/deck/homebrew/plugins 
+2. In the cloned directory run these commands:
    1. ``pnpm i``
    2. ``pnpm run build``
    - These setup pnpm and build the frontend code for testing.
-3. Consult the [decky-frontend-lib](https://github.com/SteamDeckHomebrew/decky-frontend-lib) repository for ways to accomplish your tasks.
-   - Documentation and examples are still rough, 
-   - Decky loader primarily targets Steam Deck hardware so keep this in mind when developing your plugin.
 
 #### Other important information
 
